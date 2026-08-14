@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build and test on macOS
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Verify repository hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden='(^|/)(\.opencode|\.venv|build|MoyuPro\.xcodeproj|DerivedData|dmg-staging|dist)/|\.DS_Store$|\.dmg(\.sha256)?$|\.xcuserstate$'
+          if git ls-files | grep -E "$forbidden"; then
+            echo "Forbidden private, generated, or release files are tracked."
+            exit 1
+          fi
+
+      - name: Verify runtime model
+        run: test -f Models/yolo26s.mlpackage/Manifest.json
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Run tests
+        run: |
+          xcodebuild \
+            -project MoyuPro.xcodeproj \
+            -scheme MoyuPro \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/TestDerivedData \
+            test
+
+      - name: Build Release app
+        run: |
+          xcodebuild \
+            -project MoyuPro.xcodeproj \
+            -scheme MoyuPro \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath build/DerivedData \
+            ARCHS='arm64 x86_64' \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            build
+
+      - name: Verify Release app
+        shell: bash
+        run: |
+          set -euo pipefail
+          app='build/DerivedData/Build/Products/Release/MoyuPro.app'
+          codesign --verify --deep --strict "$app"
+          codesign -d --entitlements :- "$app" 2>&1 | tee build/entitlements.xml
+          grep -q '<key>com.apple.security.device.camera</key>' build/entitlements.xml
+          ! grep -q '<key>com.apple.security.app-sandbox</key>' build/entitlements.xml
+          file "$app/Contents/MacOS/MoyuPro" | grep -q 'universal binary'

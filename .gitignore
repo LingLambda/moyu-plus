@@ -1,0 +1,44 @@
+# macOS
+.DS_Store
+
+# Local agent state and machine-specific session data
+.opencode/
+.env
+.env.*
+!.env.example
+*.p12
+*.cer
+*.key
+*.pem
+*.mobileprovision
+*.provisionprofile
+*.log
+
+# Xcode and generated project data
+MoyuPro.xcodeproj/
+DerivedData/
+build/
+.build/
+.swiftpm/
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad
+*.xcresult
+
+# Model artifacts and local benchmark workspace
+Models/*.mlpackage
+!Models/yolo26s.mlpackage/
+!Models/yolo26s.mlpackage/**
+Models/*.mlmodelc
+Models/*.pt
+tools/model_benchmark/results/
+tools/model_benchmark/data/
+tools/model_benchmark/.venv/
+tools/model_benchmark/*.pt
+tools/model_benchmark/__pycache__/
+__pycache__/
+
+# Local release artifacts
+*.dmg
+*.dmg.sha256
+*.app/

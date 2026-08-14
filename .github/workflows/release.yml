@@ -1,0 +1,128 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version without the leading v, for example 0.1.0'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package universal macOS DMG
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        shell: bash
+        env:
+          MANUAL_VERSION: ${{ inputs.version }}
+          PUBLISHED_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if [[ '${{ github.event_name }}' == 'workflow_dispatch' ]]; then
+            version="$MANUAL_VERSION"
+            release_tag="v$version"
+          else
+            release_tag="$PUBLISHED_TAG"
+            version="${release_tag#v}"
+          fi
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=$release_tag" >> "$GITHUB_ENV"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Verify runtime model
+        run: test -f Models/yolo26s.mlpackage/Manifest.json
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Run tests
+        run: |
+          xcodebuild \
+            -project MoyuPro.xcodeproj \
+            -scheme MoyuPro \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/TestDerivedData \
+            test
+
+      - name: Build universal Release app
+        run: |
+          xcodebuild \
+            -project MoyuPro.xcodeproj \
+            -scheme MoyuPro \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath build/DerivedData \
+            ARCHS='arm64 x86_64' \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            build
+
+      - name: Stamp version and verify entitlements
+        shell: bash
+        run: |
+          set -euo pipefail
+          app='build/DerivedData/Build/Products/Release/MoyuPro.app'
+          plutil -replace CFBundleShortVersionString -string "$VERSION" "$app/Contents/Info.plist"
+          codesign --force --sign - --options runtime --entitlements MoyuPro/Support/MoyuPro.entitlements "$app"
+          codesign --verify --deep --strict "$app"
+          codesign -d --entitlements :- "$app" 2>&1 | tee build/entitlements.xml
+          grep -q '<key>com.apple.security.device.camera</key>' build/entitlements.xml
+          ! grep -q '<key>com.apple.security.app-sandbox</key>' build/entitlements.xml
+          file "$app/Contents/MacOS/MoyuPro" | grep -q 'universal binary'
+
+      - name: Create DMG and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          app='build/DerivedData/Build/Products/Release/MoyuPro.app'
+          dist='build/dist'
+          stage='build/dmg-staging'
+          dmg="$dist/MoyuPro-$VERSION.dmg"
+          rm -rf "$stage"
+          mkdir -p "$dist" "$stage"
+          ditto "$app" "$stage/大墨鱼.app"
+          ln -s /Applications "$stage/应用程序"
+          hdiutil create -volname '大墨鱼' -srcfolder "$stage" -format UDZO -ov "$dmg"
+          shasum -a 256 "$dmg" | awk '{print $1}' > "$dmg.sha256"
+          hdiutil verify "$dmg"
+          echo "DMG=$dmg" >> "$GITHUB_ENV"
+          echo "CHECKSUM=$(cat "$dmg.sha256")" >> "$GITHUB_ENV"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoyuPro-${{ env.VERSION }}-macOS
+          path: |
+            build/dist/MoyuPro-${{ env.VERSION }}.dmg
+            build/dist/MoyuPro-${{ env.VERSION }}.dmg.sha256
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="Universal macOS DMG, ad-hoc signed and not notarized. SHA-256: $CHECKSUM"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$DMG" "$DMG.sha256" --clobber
+            gh release edit "$RELEASE_TAG" --title "大墨鱼 $VERSION" --notes "$notes"
+          else
+            gh release create "$RELEASE_TAG" "$DMG" "$DMG.sha256" \
+              --target "$GITHUB_SHA" \
+              --title "大墨鱼 $VERSION" \
+              --notes "$notes"
+          fi

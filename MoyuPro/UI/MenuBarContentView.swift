@@ -24,7 +24,7 @@ struct MenuBarContentView: View {
 
             Divider()
 
-            LabeledContent("有效人体", value: "\(model.validPeople.count)")
+            LabeledContent("当前核心数", value: "\(model.validPeople.count)")
             LabeledContent("推理耗时", value: String(format: "%.1f ms", model.snapshot.metrics.inferenceMilliseconds))
 
             if let warning = model.notificationWarning {
@@ -77,7 +77,7 @@ struct MenuBarContentView: View {
 
             Divider()
 
-            Button("退出大墨鱼") {
+            Button("退出程序") {
                 NSApplication.shared.terminate(nil)
             }
         }

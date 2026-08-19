@@ -1,10 +1,12 @@
 import AppKit
 @preconcurrency import AVFoundation
+import MenuBarExtraAccess
 import SwiftUI
 
 @main
 struct MoyuProApp: App {
     @State private var model = AppModel.shared
+    @State private var isMenuPresented = false
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
@@ -12,6 +14,9 @@ struct MoyuProApp: App {
             MenuBarContentView(model: model)
         } label: {
             Label("大墨鱼", systemImage: model.statusSymbolName)
+        }
+        .menuBarExtraAccess(isPresented: $isMenuPresented) { statusItem in
+            appDelegate.configureMenuBarStatusItem(statusItem)
         }
         .menuBarExtraStyle(.window)
 
@@ -29,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboardingWindowController: NSWindowController?
     private var observers: [NSObjectProtocol] = []
     private var distributedObservers: [NSObjectProtocol] = []
+    private var menuBarStatusItem: NSStatusItem?
+    private var statusItemRightClickMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         registerSystemObservers()
@@ -40,7 +47,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func configureMenuBarStatusItem(_ statusItem: NSStatusItem) {
+        menuBarStatusItem = statusItem
+        if let statusItemRightClickMonitor {
+            NSEvent.removeMonitor(statusItemRightClickMonitor)
+        }
+
+        statusItemRightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] event in
+            guard let self,
+                  event.window === self.menuBarStatusItem?.button?.window else {
+                return event
+            }
+
+            self.showStatusItemContextMenu()
+            return nil
+        }
+    }
+
+    private func showStatusItemContextMenu() {
+        guard let button = menuBarStatusItem?.button else { return }
+
+        let menu = NSMenu()
+        let exitItem = NSMenuItem(
+            title: "退出程序",
+            action: #selector(terminateFromStatusItem(_:)),
+            keyEquivalent: ""
+        )
+        exitItem.target = self
+        menu.addItem(exitItem)
+        menu.popUp(positioning: nil, at: .zero, in: button)
+    }
+
+    @objc private func terminateFromStatusItem(_ sender: Any?) {
+        NSApplication.shared.terminate(nil)
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
+        if let statusItemRightClickMonitor {
+            NSEvent.removeMonitor(statusItemRightClickMonitor)
+            self.statusItemRightClickMonitor = nil
+        }
+        menuBarStatusItem = nil
         observers.forEach(NotificationCenter.default.removeObserver)
         observers.removeAll()
         distributedObservers.forEach(DistributedNotificationCenter.default().removeObserver)

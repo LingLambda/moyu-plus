@@ -2,7 +2,7 @@
   <img src="MoyuPro/Resources/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" width="128" height="128" alt="大墨鱼图标">
 </p>
 
-<h1 align="center">大墨鱼（Moyu Pro）</h1>
+<h1 align="center">大墨鱼（moyu-plus）</h1>
 
 <p align="center">
   本地运行的 macOS 菜单栏隐私辅助工具

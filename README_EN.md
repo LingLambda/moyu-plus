@@ -1,13 +1,13 @@
-# Moyu Pro
+# moyu-plus
 
 English | [简体中文](README.md)
 
-Moyu Pro is a local-only macOS menu bar privacy utility. It uses the camera and Core ML to detect generic person candidates. When the configured person threshold is sustained, it can switch to selected windows or apps and send a customizable local notification.
+moyu-plus is a local-only macOS menu bar privacy utility. It uses the camera and Core ML to detect generic person candidates. When the configured person threshold is sustained, it can switch to selected windows or apps and send a customizable local notification.
 
 Camera frames are processed only in memory. They are not uploaded or recorded, and the app does not perform face or identity recognition.
 
 > [!IMPORTANT]
-> Moyu Pro only provides an environmental change signal. It does not replace a door lock, screen lock, access control, or any other security measure, and it must not be used to monitor other people.
+> moyu-plus only provides an environmental change signal. It does not replace a door lock, screen lock, access control, or any other security measure, and it must not be used to monitor other people.
 
 ## Features
 
@@ -30,7 +30,7 @@ Camera frames are processed only in memory. They are not uploaded or recorded, a
 
 ## Installation
 
-Download the DMG from the releases page, drag Moyu Pro into Applications, and launch it from there. Window switching requires a non-sandboxed build so the app can access the macOS Accessibility Server. Keeping a stable installation path reduces the chance that macOS requests permissions again after an update.
+Download the DMG from the releases page, drag moyu-plus into Applications, and launch it from there. Window switching requires a non-sandboxed build so the app can access the macOS Accessibility Server. Keeping a stable installation path reduces the chance that macOS requests permissions again after an update.
 
 If this repository does not have packaged releases yet, build it from source:
 
@@ -50,7 +50,7 @@ The app is written to Xcode DerivedData. Run `tools/package_debug_dmg.sh` to cre
 
 1. Allow camera and notification access during first-run setup.
 2. Enable window switching under Trigger Actions.
-3. Select Open System Settings and allow the current Moyu Pro build in System Settings.
+3. Select Open System Settings and allow the current moyu-plus build in System Settings.
 4. Return to the app. Permission and window discovery refresh automatically; Refresh Windows is also available.
 5. Configure Window 1, Window 2, App 1, and App 2; set their priority, then run Test Switch.
 6. Adjust the detection rules and enable protection.
@@ -110,7 +110,7 @@ Keep module boundaries explicit, add tests for pure logic and edge cases, and ru
 
 ## License
 
-Moyu Pro is licensed under the [GNU AGPL-3.0](LICENSE).
+moyu-plus is licensed under the [GNU AGPL-3.0](LICENSE).
 
 ## Acknowledgements
 
